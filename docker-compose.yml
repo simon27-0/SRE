@@ -1,0 +1,60 @@
+services:
+  fluent-bit:
+    container_name: fluent-bit
+    image: fluent/fluent-bit:latest-debug
+    volumes:
+      - ./log:/var/log:ro
+      - ./fluent-bit.conf:/fluent-bit/etc/fluent-bit.conf
+      - ./parser.conf:/fluent-bit/etc/parser.conf
+    networks:
+      - logging-system
+
+  vector-dev:
+    container_name: vector-dev
+    image: timberio/vector:0.43.0-debian
+    volumes:
+      - ./vector.yaml:/etc/vector/vector.yaml
+    depends_on:
+      - elasticsearch    
+    networks:
+      - logging-system
+
+# #### ELASTICSEARCH & KIBANA & GRAFANA
+#   elasticsearch:
+#     container_name: elasticsearch
+#     image: docker.elastic.co/elasticsearch/elasticsearch:7.17.0
+#     environment:
+#       - discovery.type=single-node
+#       - ES_JAVA_OPTS=-Xms512m -Xmx512m    
+#     networks:
+#       logging-system:
+#         ipv4_address: 192.168.100.14
+#     ports:
+#       - "9200:9200"
+#       - "9300:9300"
+#   kibana:
+#     image: docker.elastic.co/kibana/kibana:7.17.0
+#     container_name: kibana
+#     environment:
+#       - ELASTICSEARCH_HOSTS=http://elasticsearch:9200
+#     ports:
+#       - "5601:5601"
+#     depends_on:
+#       - elasticsearch
+#     networks:
+#       - logging-system
+
+#   grafana:
+#     image: grafana/grafana
+#     container_name: grafana
+#     ports:
+#       - "3000:3000"
+#     networks: 
+#       - logging-system    
+
+
+
+# Create docker network with subnet 172.40.0.0/28 manually
+networks:
+  logging-system:
+    external: true

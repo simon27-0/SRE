@@ -1,0 +1,71 @@
+sources:
+  fluent_logs:
+    type: "fluent"
+    address: "0.0.0.0:9000" 
+
+transforms:
+  my_transform_id:
+    type: log_to_metric
+    inputs:
+      - fluent_logs
+    metrics:
+      - type: counter
+        field: status_code
+        tags:
+          status_code: "{{status_code}}"
+          service_name: "{{service_name}}"
+          response_time_ms: "{{response_time_ms}}"
+          user_id: "{{user_id}}"
+          transaction_id: "{{transaction_id}}"
+          additional_info: "{{additional_info}}"
+          timestamp: "{{timestamp}}"
+  aggregate_requests:
+    type: aggregate 
+    inputs:
+      - my_transform_id
+    interval_ms: 10000
+    mode: Sum
+
+  extract_response_time:
+    type: remap
+    inputs:
+      - fluent_logs
+    source: |
+      response_time_str = replace!(.response_time_ms, "ms", "") # Hapus "ms"
+      .response_time_value = to_float(response_time_str) ?? 0.0 # Konversi ke float
+
+  response_time_metrics:
+    type: log_to_metric
+    inputs:
+      - extract_response_time
+    metrics:
+      - type: gauge
+        field: response_time_value
+        name: response_time_ms
+        tags:
+          response_time: "{{response_time_value}}"
+
+  aggregate_response_time:
+    type: aggregate
+    inputs:
+      - response_time_metrics
+    interval_ms: 10000
+    mode: Mean
+
+sinks:
+  elasticsearch:
+    type: "elasticsearch"
+    inputs: ["aggregate_requests", "aggregate_response_time"]
+    endpoints: ["http://192.168.100.14:9200"]
+  # print:
+  #     type: "console"
+  #     inputs: ["aggregate_requests", "aggregate_response_time"]
+  #     encoding:
+  #       codec: "json"
+
+# sinks:
+#   print:
+#     type: "console"
+#     inputs: ["aggregate_response_time"]
+#     encoding:
+#       codec: "json"
